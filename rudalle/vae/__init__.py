@@ -2,7 +2,7 @@
 from os.path import dirname, abspath, join
 
 import torch
-from huggingface_hub import hf_hub_url, cached_download
+from huggingface_hub import hf_hub_url, hf_hub_download
 from omegaconf import OmegaConf
 
 from .model import VQGanGumbelVAE
@@ -20,7 +20,12 @@ def get_vae(pretrained=True, dwt=False, cache_dir='/tmp/rudalle'):
             filename = 'vqgan.gumbelf8-sber.model.ckpt'
         cache_dir = join(cache_dir, 'vae')
         config_file_url = hf_hub_url(repo_id=repo_id, filename=filename)
-        cached_download(config_file_url, cache_dir=cache_dir, force_filename=filename)
+        # 'https://huggingface.co/sberbank-ai/rudalle-utils/resolve/main/vqgan.gumbelf8-sber-dwt.model.ckpt'
+        try:
+            hf_hub_download(repo_id, cache_dir=cache_dir, filename=filename)
+        except Exception as ex:
+            print(ex)
+            raise ex
         checkpoint = torch.load(join(cache_dir, filename), map_location='cpu')
         if dwt:
             vae.load_state_dict(checkpoint['state_dict'])

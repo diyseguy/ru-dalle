@@ -6,6 +6,7 @@ from os.path import join
 import torch
 import torchvision
 import transformers
+from transformers.generation.utils import top_k_top_p_filtering
 import more_itertools
 import numpy as np
 import matplotlib.pyplot as plt
@@ -51,7 +52,7 @@ def generate_images(text, tokenizer, dalle, vae, top_k, top_p, images_num, image
                                           cache=cache, return_loss=False)
                     logits = logits[:, -1, vocab_size:]
                     logits /= temperature
-                    filtered_logits = transformers.top_k_top_p_filtering(logits, top_k=top_k, top_p=top_p)
+                    filtered_logits = top_k_top_p_filtering(logits, top_k=top_k, top_p=top_p)
                     probs = torch.nn.functional.softmax(filtered_logits, dim=-1)
                     sample = torch.multinomial(probs, 1)
                     out = torch.cat((out, sample), dim=-1)

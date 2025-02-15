@@ -4,7 +4,7 @@ import gc
 import requests
 from tqdm.auto import tqdm
 import torch
-from huggingface_hub import hf_hub_url, cached_download
+from huggingface_hub import hf_hub_url, hf_hub_download
 
 from .model import DalleModel
 from .fp16 import FP16Module
@@ -33,6 +33,7 @@ MODELS = {
         filename='pytorch_model_v3.bin',
         authors='SberAI, SberDevices, shonenkovAI',
         full_description='',  # TODO
+        download_url='https://huggingface.co/sberbank-ai/rudalle-Malevich/resolve/main/pytorch_model_v3.bin'
     ),
     'Malevich_v2': dict(
         hf_version='v2',
@@ -55,7 +56,8 @@ MODELS = {
         repo_id='sberbank-ai/rudalle-Malevich',
         filename='pytorch_model_v2.bin',
         authors='SberAI, SberDevices, shonenkovAI',
-        full_description='',  # TODO
+        full_description='',
+        download_url='https://huggingface.co/sberbank-ai/rudalle-Malevich/resolve/main/pytorch_model_v2.bin'
     ),
     'Emojich': dict(
         hf_version='v2',
@@ -78,7 +80,8 @@ MODELS = {
         repo_id='sberbank-ai/rudalle-Emojich',
         filename='pytorch_model.bin',
         authors='SberAI, SberDevices, shonenkovAI',
-        full_description='',  # TODO
+        full_description='',
+        download_url='https://huggingface.co/sberbank-ai/rudalle-Emojich/resolve/main/pytorch_model.bin'
     ),
     'Surrealist_XL': dict(
         hf_version='v3',
@@ -102,6 +105,7 @@ MODELS = {
         filename='pytorch_model.bin',
         authors='shonenkovAI',
         full_description='',
+        download_url='https://huggingface.co/shonenkov-AI/rudalle-xl-surrealist/resolve/main/pytorch_model.bin'
     ),
     'Kandinsky': dict(
         hf_version='v3',
@@ -124,7 +128,8 @@ MODELS = {
         repo_id='sberbank-ai/rudalle-Kandinsky',
         filename='pytorch_model.bin',
         authors='SberAI, SberDevices, shonenkovAI',
-        full_description='',  # TODO
+        full_description='repo not found?',
+        download_url='https://huggingface.co/sberbank-ai/rudalle-Kandinsky/resolve/main/pytorch_model.bin'
     ),
     'dummy': dict(
         hf_version='v3',
@@ -145,7 +150,8 @@ MODELS = {
         ),
         repo_id='',
         filename='',
-        full_description='',  # TODO
+        full_description='',
+        download_directly='',
     ),
 }
 
@@ -159,6 +165,9 @@ def get_rudalle_model(name, pretrained=True, fp16=False, device='cpu', use_auth_
 
     config = MODELS[name].copy()
     config['model_params'].update(model_kwargs)
+    repo_id = config['repo_id']
+    repo_filename = config['filename']
+    download_url = config['download_url']
 
     if pretrained:
         def init_layer_func(x, prefix=None):
@@ -185,21 +194,15 @@ def get_rudalle_model(name, pretrained=True, fp16=False, device='cpu', use_auth_
         global checkpoint
         global pbar
 
-        cache_dir = os.path.join(cache_dir, name)
-        config_file_url = hf_hub_url(repo_id=config['repo_id'], filename=config['filename'])
+        cache_dir = os.path.join(cache_dir, name) # '/tmp/rudalle/Malevich'
+        config_file_url = hf_hub_url(repo_id=repo_id, filename=repo_filename)
+        # 'https://huggingface.co/sberbank-ai/rudalle-Malevich/resolve/main/pytorch_model_v3.bin'
         try:
-            cached_download(config_file_url, cache_dir=cache_dir, force_filename=config['filename'],
-                            use_auth_token=use_auth_token)
-        except requests.HTTPError as err:
-            err_str = str(err)
-            # compatibility with auth_token for old hf repo
-            if name == 'Kandinsky' and err_str.startswith('404 Client Error: Not Found for url:'):
-                config_file_url = hf_hub_url(repo_id='shonenkov-AI/Kandinsky', filename='pytorch_model.bin')
-                cached_download(config_file_url, cache_dir=cache_dir, force_filename=config['filename'],
-                                use_auth_token=use_auth_token)
-            else:
-                raise err
-        checkpoint = torch.load(os.path.join(cache_dir, config['filename']), map_location=device)
+            hf_hub_download(repo_id, cache_dir=cache_dir, filename=repo_filename)
+        except Exception as ex:
+          print(ex)
+          raise ex
+        checkpoint = torch.load(os.path.join(cache_dir, repo_filename), map_location=device)
 
         pbar = tqdm(total=len(checkpoint.keys()))
         pbar.set_description('Init model layer by layer')
